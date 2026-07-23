@@ -42,10 +42,10 @@ async def load_models():
     global tracker_model, classifier_model, scaler, metadata
     try:
         tracker_model = HorizonTracker()
-        tracker_model.load(os.path.join(MODELS_DIR, "horizon_tracker.pt"))
+        tracker_model.load(os.path.join(MODELS_DIR, "horizon_tracker.joblib"))
 
         classifier_model = FaciesClassifier()
-        classifier_model.load(os.path.join(MODELS_DIR, "facies_classifier.pt"))
+        classifier_model.load(os.path.join(MODELS_DIR, "facies_classifier.joblib"))
 
         with open(os.path.join(MODELS_DIR, "scaler.pkl"), "rb") as f:
             scaler = pickle.load(f)
