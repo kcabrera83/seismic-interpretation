@@ -1,11 +1,13 @@
-"""API integration tests."""
+"""API integration tests for Seismic Interpretation FastAPI app."""
 
-import json
 import sys
-import time
-import requests
+from fastapi.testclient import TestClient
 
-BASE = "http://127.0.0.1:5013"
+sys.path.insert(0, ".")
+from app import app
+
+client = TestClient(app)
+
 passed = 0
 failed = 0
 
@@ -22,7 +24,7 @@ def test(name, fn):
 
 
 def test_health():
-    r = requests.get(f"{BASE}/api/health", timeout=5)
+    r = client.get("/api/health", timeout=5)
     assert r.status_code == 200
     d = r.json()
     assert d["status"] == "healthy"
@@ -30,17 +32,11 @@ def test_health():
 
 
 def test_models():
-    r = requests.get(f"{BASE}/api/models", timeout=5)
+    r = client.get("/api/models", timeout=5)
     assert r.status_code == 200
     d = r.json()
     assert "horizon_tracker" in d
     assert "facies_classifier" in d
-
-
-def test_index():
-    r = requests.get(f"{BASE}/", timeout=5)
-    assert r.status_code == 200
-    assert "Seismic Interpretation" in r.text
 
 
 def test_track():
@@ -48,7 +44,7 @@ def test_track():
         "amplitude": 0.5, "frequency": 30.0, "phase": 0.0,
         "acoustic_impedance": 2000.0, "velocity": 2500.0, "density": 2.2,
     }]
-    r = requests.post(f"{BASE}/api/track", json={"features": feat}, timeout=5)
+    r = client.post("/api/track", json={"features": feat}, timeout=5)
     assert r.status_code == 200
     d = r.json()
     assert "predictions" in d
@@ -60,7 +56,7 @@ def test_classify():
         "amplitude": -0.3, "frequency": 45.0, "phase": 1.5,
         "acoustic_impedance": 1800.0, "velocity": 2200.0, "density": 2.0,
     }]
-    r = requests.post(f"{BASE}/api/classify", json={"features": feat}, timeout=5)
+    r = client.post("/api/classify", json={"features": feat}, timeout=5)
     assert r.status_code == 200
     d = r.json()
     assert "labels" in d
@@ -73,7 +69,7 @@ def test_track_batch():
         {"amplitude": 0.1, "frequency": 20.0, "phase": 0.5, "acoustic_impedance": 1900.0, "velocity": 2300.0, "density": 2.1},
         {"amplitude": -0.7, "frequency": 60.0, "phase": -1.2, "acoustic_impedance": 2500.0, "velocity": 3000.0, "density": 2.5},
     ]
-    r = requests.post(f"{BASE}/api/track", json={"features": feats}, timeout=5)
+    r = client.post("/api/track", json={"features": feats}, timeout=5)
     assert r.status_code == 200
     assert len(r.json()["predictions"]) == 2
 
@@ -83,19 +79,19 @@ def test_classify_batch():
         {"amplitude": 0.0, "frequency": 25.0, "phase": 0.0, "acoustic_impedance": 2100.0, "velocity": 2400.0, "density": 2.15},
         {"amplitude": 0.8, "frequency": 70.0, "phase": 2.0, "acoustic_impedance": 2800.0, "velocity": 3200.0, "density": 2.6},
     ]
-    r = requests.post(f"{BASE}/api/classify", json={"features": feats}, timeout=5)
+    r = client.post("/api/classify", json={"features": feats}, timeout=5)
     assert r.status_code == 200
     assert len(r.json()["labels"]) == 2
 
 
 def test_track_bad_input():
-    r = requests.post(f"{BASE}/api/track", json={"bad": "data"}, timeout=5)
-    assert r.status_code == 400
+    r = client.post("/api/track", json={"bad": "data"}, timeout=5)
+    assert r.status_code == 422
 
 
 def test_classify_bad_input():
-    r = requests.post(f"{BASE}/api/classify", json={}, timeout=5)
-    assert r.status_code == 400
+    r = client.post("/api/classify", json={}, timeout=5)
+    assert r.status_code == 422
 
 
 if __name__ == "__main__":
@@ -103,21 +99,8 @@ if __name__ == "__main__":
     print("  API Tests")
     print("=" * 50)
 
-    print("\nWaiting for server...")
-    for i in range(10):
-        try:
-            requests.get(f"{BASE}/api/health", timeout=2)
-            print("  Server is up.\n")
-            break
-        except Exception:
-            time.sleep(1)
-    else:
-        print("  Server did not start in time.")
-        sys.exit(1)
-
     test("GET  /api/health", test_health)
     test("GET  /api/models", test_models)
-    test("GET  /", test_index)
     test("POST /api/track (single)", test_track)
     test("POST /api/classify (single)", test_classify)
     test("POST /api/track (batch)", test_track_batch)

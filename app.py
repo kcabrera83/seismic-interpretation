@@ -1,14 +1,29 @@
-"""Flask API for seismic interpretation models."""
+"""FastAPI for seismic interpretation models."""
 
 import os
 import json
 import pickle
 import numpy as np
-from flask import Flask, request, jsonify, render_template
+from typing import List, Dict, Any
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from seismic_interpretation.utils.preprocessor import FEATURE_COLS
 
-app = Flask(__name__)
+app = FastAPI(
+    title="Seismic Interpretation",
+    description="Seismic horizon tracking and facies classification",
+    version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 MODELS_DIR = os.path.join("outputs", "models")
 tracker_model = None
@@ -17,7 +32,8 @@ scaler = None
 metadata = None
 
 
-def load_models():
+@app.on_event("startup")
+async def load_models():
     global tracker_model, classifier_model, scaler, metadata
     with open(os.path.join(MODELS_DIR, "horizon_tracker.pkl"), "rb") as f:
         tracker_model = pickle.load(f)
@@ -29,65 +45,61 @@ def load_models():
         metadata = json.load(f)
 
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+class SeismicFeature(BaseModel):
+    amplitude: float
+    frequency: float
+    phase: float
+    acoustic_impedance: float
+    velocity: float
+    density: float
 
 
-@app.route("/api/health", methods=["GET"])
-def health():
-    return jsonify({
+class TrackRequest(BaseModel):
+    features: List[SeismicFeature]
+
+
+class TrackResponse(BaseModel):
+    predictions: list
+    n: int
+
+
+class ClassifyRequest(BaseModel):
+    features: List[SeismicFeature]
+
+
+class ClassifyResponse(BaseModel):
+    labels: list
+    probabilities: List[list]
+    n: int
+
+
+@app.get("/api/health")
+async def health():
+    return {
         "status": "healthy",
         "models_loaded": tracker_model is not None and classifier_model is not None,
-    })
+    }
 
 
-@app.route("/api/models", methods=["GET"])
-def models_info():
-    return jsonify(metadata)
+@app.get("/api/models")
+async def models_info():
+    return metadata
 
 
-@app.route("/api/track", methods=["POST"])
-def track():
-    data = request.get_json()
-    if not data or "features" not in data:
-        return jsonify({"error": "Missing 'features' key with array of feature objects"}), 400
-
-    rows = data["features"]
+@app.post("/api/track", response_model=TrackResponse)
+async def track(request: TrackRequest):
+    rows = [r.model_dump() for r in request.features]
     X = np.array([[r[c] for c in FEATURE_COLS] for r in rows])
     X_scaled = scaler.transform(X)
     predictions = tracker_model.predict(X_scaled).tolist()
-    return jsonify({"predictions": predictions, "n": len(predictions)})
+    return TrackResponse(predictions=predictions, n=len(predictions))
 
 
-@app.route("/api/classify", methods=["POST"])
-def classify():
-    data = request.get_json()
-    if not data or "features" not in data:
-        return jsonify({"error": "Missing 'features' key with array of feature objects"}), 400
-
-    rows = data["features"]
+@app.post("/api/classify", response_model=ClassifyResponse)
+async def classify(request: ClassifyRequest):
+    rows = [r.model_dump() for r in request.features]
     X = np.array([[r[c] for c in FEATURE_COLS] for r in rows])
     X_scaled = scaler.transform(X)
     labels = classifier_model.predict(X_scaled).tolist()
     proba = classifier_model.predict_proba(X_scaled).tolist()
-    return jsonify({"labels": labels, "probabilities": proba, "n": len(labels)})
-
-
-@app.route("/api/docs", methods=["GET"])
-def api_docs():
-    return jsonify({
-        "openapi": "3.0.0",
-        "info": {"title": "Seismic Interpretation", "version": "1.0.0"},
-        "paths": {
-            "/api/health": {"get": {"summary": "Health check"}},
-            "/api/models": {"get": {"summary": "Model info"}},
-            "/api/track": {"post": {"summary": "Track seismic horizons"}},
-            "/api/classify": {"post": {"summary": "Classify seismic facies"}},
-        }
-    })
-
-
-if __name__ == "__main__":
-    load_models()
-    app.run(host="0.0.0.0", port=5013, debug=False)
+    return ClassifyResponse(labels=labels, probabilities=proba, n=len(labels))
