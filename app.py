@@ -7,6 +7,7 @@ import numpy as np
 from typing import List, Dict, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 
 from seismic_interpretation.utils.preprocessor import FEATURE_COLS
@@ -24,6 +25,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+Instrumentator().instrument(app).expose(app)
 
 MODELS_DIR = os.path.join("outputs", "models")
 tracker_model = None
@@ -103,3 +106,4 @@ async def classify(request: ClassifyRequest):
     labels = classifier_model.predict(X_scaled).tolist()
     proba = classifier_model.predict_proba(X_scaled).tolist()
     return ClassifyResponse(labels=labels, probabilities=proba, n=len(labels))
+
