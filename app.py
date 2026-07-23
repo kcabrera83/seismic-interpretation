@@ -74,6 +74,20 @@ def classify():
     return jsonify({"labels": labels, "probabilities": proba, "n": len(labels)})
 
 
+@app.route("/api/docs", methods=["GET"])
+def api_docs():
+    return jsonify({
+        "openapi": "3.0.0",
+        "info": {"title": "Seismic Interpretation", "version": "1.0.0"},
+        "paths": {
+            "/api/health": {"get": {"summary": "Health check"}},
+            "/api/models": {"get": {"summary": "Model info"}},
+            "/api/track": {"post": {"summary": "Track seismic horizons"}},
+            "/api/classify": {"post": {"summary": "Classify seismic facies"}},
+        }
+    })
+
+
 if __name__ == "__main__":
     load_models()
     app.run(host="0.0.0.0", port=5013, debug=False)
