@@ -1,4 +1,4 @@
-"""Train both models and save artifacts."""
+"""Train both models and save artifacts using PyTorch CNN."""
 
 import os
 import json
@@ -15,7 +15,7 @@ OUTPUT_DIR = os.path.join("outputs", "models")
 
 def main():
     print("=" * 60)
-    print("  Seismic Interpretation - Model Training")
+    print("  Seismic Interpretation - Model Training (PyTorch CNN)")
     print("=" * 60)
 
     print("\n[1/5] Generating synthetic seismic data...")
@@ -27,8 +27,8 @@ def main():
     data = prepare_data(df, test_size=0.2, random_state=42)
     print(f"  Train: {len(data['X_train'])} | Test: {len(data['X_test'])}")
 
-    print("\n[3/5] Training HorizonTracker (GradientBoosting)...")
-    tracker = HorizonTracker(n_estimators=200, max_depth=5, learning_rate=0.1)
+    print("\n[3/5] Training HorizonTracker (PyTorch CNN)...")
+    tracker = HorizonTracker(in_features=6, lr=0.001, epochs=100, batch_size=64)
     tracker.train(data["X_train"], data["y_reg_train"])
     reg_metrics = tracker.evaluate(data["X_test"], data["y_reg_test"])
     print(f"  MSE:  {reg_metrics['mse']:.6f}")
@@ -36,8 +36,8 @@ def main():
     print(f"  MAE:  {reg_metrics['mae']:.6f}")
     print(f"  R2:   {reg_metrics['r2']:.4f}")
 
-    print("\n[4/5] Training FaciesClassifier (RandomForest)...")
-    classifier = FaciesClassifier(n_estimators=200, max_depth=12)
+    print("\n[4/5] Training FaciesClassifier (PyTorch CNN)...")
+    classifier = FaciesClassifier(in_features=6, num_classes=5, lr=0.001, epochs=100, batch_size=64)
     classifier.train(data["X_train"], data["y_clf_train"])
     clf_metrics = classifier.evaluate(data["X_test"], data["y_clf_test"])
     print(f"  Accuracy: {clf_metrics['accuracy']:.4f}")
@@ -45,16 +45,16 @@ def main():
 
     print("\n[5/5] Saving models and metadata...")
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    tracker.save(os.path.join(OUTPUT_DIR, "horizon_tracker.pkl"))
-    classifier.save(os.path.join(OUTPUT_DIR, "facies_classifier.pkl"))
+    tracker.save(os.path.join(OUTPUT_DIR, "horizon_tracker.pt"))
+    classifier.save(os.path.join(OUTPUT_DIR, "facies_classifier.pt"))
 
     scaler_bytes = pickle.dumps(data["scaler"])
     with open(os.path.join(OUTPUT_DIR, "scaler.pkl"), "wb") as f:
         f.write(scaler_bytes)
 
     metadata = {
-        "horizon_tracker": {"model": "GradientBoostingRegressor", "metrics": reg_metrics},
-        "facies_classifier": {"model": "RandomForestClassifier", "metrics": clf_metrics},
+        "horizon_tracker": {"model": "PyTorch CNN (HorizonCNN)", "metrics": reg_metrics},
+        "facies_classifier": {"model": "PyTorch CNN (FaciesCNN)", "metrics": clf_metrics},
         "training_samples": len(data["X_train"]),
         "test_samples": len(data["X_test"]),
         "features": data["feature_cols"],
@@ -66,8 +66,8 @@ def main():
     print("  Training Complete!")
     print("=" * 60)
     print(f"\n  Models saved to: {OUTPUT_DIR}/")
-    print(f"  - horizon_tracker.pkl")
-    print(f"  - facies_classifier.pkl")
+    print(f"  - horizon_tracker.pt")
+    print(f"  - facies_classifier.pt")
     print(f"  - scaler.pkl")
     print(f"  - metadata.json")
     print()

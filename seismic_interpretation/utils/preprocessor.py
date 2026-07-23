@@ -20,15 +20,16 @@ def prepare_data(df, test_size=0.2, random_state=42):
     y_reg = df[TARGET_REG].values
     y_clf = df[TARGET_CLF].values
 
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-
     X_train, X_test, y_reg_train, y_reg_test, y_clf_train, y_clf_test = train_test_split(
-        X_scaled, y_reg, y_clf, test_size=test_size, random_state=random_state,
+        X, y_reg, y_clf, test_size=test_size, random_state=random_state,
     )
 
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
     return {
-        "X_train": X_train, "X_test": X_test,
+        "X_train": X_train_scaled, "X_test": X_test_scaled,
         "y_reg_train": y_reg_train, "y_reg_test": y_reg_test,
         "y_clf_train": y_clf_train, "y_clf_test": y_clf_test,
         "scaler": scaler,

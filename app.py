@@ -11,11 +11,13 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 
 from seismic_interpretation.utils.preprocessor import FEATURE_COLS
+from seismic_interpretation.models.horizon_tracker import HorizonTracker
+from seismic_interpretation.models.facies_classifier import FaciesClassifier
 
 app = FastAPI(
     title="Seismic Interpretation",
     description="Seismic horizon tracking and facies classification",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -38,14 +40,19 @@ metadata = None
 @app.on_event("startup")
 async def load_models():
     global tracker_model, classifier_model, scaler, metadata
-    with open(os.path.join(MODELS_DIR, "horizon_tracker.pkl"), "rb") as f:
-        tracker_model = pickle.load(f)
-    with open(os.path.join(MODELS_DIR, "facies_classifier.pkl"), "rb") as f:
-        classifier_model = pickle.load(f)
-    with open(os.path.join(MODELS_DIR, "scaler.pkl"), "rb") as f:
-        scaler = pickle.load(f)
-    with open(os.path.join(MODELS_DIR, "metadata.json"), "r") as f:
-        metadata = json.load(f)
+    try:
+        tracker_model = HorizonTracker()
+        tracker_model.load(os.path.join(MODELS_DIR, "horizon_tracker.pt"))
+
+        classifier_model = FaciesClassifier()
+        classifier_model.load(os.path.join(MODELS_DIR, "facies_classifier.pt"))
+
+        with open(os.path.join(MODELS_DIR, "scaler.pkl"), "rb") as f:
+            scaler = pickle.load(f)
+        with open(os.path.join(MODELS_DIR, "metadata.json"), "r") as f:
+            metadata = json.load(f)
+    except Exception as e:
+        print(f"[WARN] Error loading models: {e}")
 
 
 class SeismicFeature(BaseModel):
@@ -91,6 +98,8 @@ async def models_info():
 
 @app.post("/api/track", response_model=TrackResponse)
 async def track(request: TrackRequest):
+    if tracker_model is None:
+        raise HTTPException(status_code=503, detail="Horizon tracker model not loaded")
     rows = [r.model_dump() for r in request.features]
     X = np.array([[r[c] for c in FEATURE_COLS] for r in rows])
     X_scaled = scaler.transform(X)
@@ -100,10 +109,11 @@ async def track(request: TrackRequest):
 
 @app.post("/api/classify", response_model=ClassifyResponse)
 async def classify(request: ClassifyRequest):
+    if classifier_model is None:
+        raise HTTPException(status_code=503, detail="Facies classifier model not loaded")
     rows = [r.model_dump() for r in request.features]
     X = np.array([[r[c] for c in FEATURE_COLS] for r in rows])
     X_scaled = scaler.transform(X)
     labels = classifier_model.predict(X_scaled).tolist()
     proba = classifier_model.predict_proba(X_scaled).tolist()
     return ClassifyResponse(labels=labels, probabilities=proba, n=len(labels))
-
