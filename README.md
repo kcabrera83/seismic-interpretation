@@ -1,12 +1,30 @@
 # Seismic Interpretation
 
-ML-based seismic attribute interpretation system for horizon tracking and facies classification.
+ML-based seismic attribute interpretation system for horizon tracking and facies classification using deep learning.
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Deep Learning | **PyTorch CNN** - convolutional neural networks |
+| SEGY Data | **segyio** - SEG-Y file handling |
+| Data Processing | pandas, numpy, joblib |
+| Web Server | **FastAPI** + uvicorn |
+| Monitoring | prometheus-fastapi-instrumentator |
+| Validation | pydantic v2 |
+| Visualization | matplotlib, seaborn |
+
+### Key Libraries
+- PyTorch - CNN models for seismic interpretation
+- segyio - Reading and processing SEG-Y seismic data
+- FastAPI - Modern async web framework
+- pandas / numpy - Data processing
 
 ## Overview
 
 This project provides two core ML models:
 
-- **HorizonTracker** (GradientBoostingRegressor) - Predicts porosity from seismic attributes for horizon identification and tracking.
+- **HorizonTracker** (PyTorch CNN) - Predicts porosity from seismic attributes for horizon identification and tracking.
 - **FaciesClassifier** (RandomForestClassifier) - Classifies lithology facies from seismic attributes.
 
 ## Features
@@ -14,7 +32,7 @@ This project provides two core ML models:
 - Synthetic seismic data generation (amplitude, frequency, phase, acoustic impedance, velocity, density)
 - Data preprocessing with StandardScaler
 - Model training, evaluation, and persistence
-- REST API with Flask (port 5013)
+- REST API with FastAPI (port 5013)
 - Dark-themed web dashboard with Chart.js visualizations
 
 ## Installation
@@ -94,6 +112,6 @@ curl -X POST http://localhost:5013/api/classify \
   -d '{"features": [{"amplitude": -0.3, "frequency": 45, "phase": 1.5, "acoustic_impedance": 1800, "velocity": 2200, "density": 2.0}]}'
 ```
 
-## Elaborado por
+---
 
-Ing. Kelvin Cabrera
+Elaborado por Ing. Kelvin Cabrera
