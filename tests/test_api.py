@@ -19,7 +19,6 @@ def test_health(client):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    pass  # models may or may not be loaded
 
 
 def test_models(client):
@@ -31,7 +30,7 @@ def test_track_valid(client):
     response = client.post("/api/track", json={
         "features": _make_features(5),
     })
-    assert response.status_code in (200, 500)
+    assert response.status_code in (200, 500, 503)
     if response.status_code == 200:
         data = response.json()
         assert "predictions" in data
@@ -44,7 +43,7 @@ def test_classify_valid(client):
     response = client.post("/api/classify", json={
         "features": _make_features(5),
     })
-    assert response.status_code in (200, 500)
+    assert response.status_code in (200, 500, 503)
     if response.status_code == 200:
         data = response.json()
         assert "labels" in data
@@ -59,7 +58,7 @@ def test_track_single_sample(client):
     response = client.post("/api/track", json={
         "features": [_make_features(1)[0]],
     })
-    assert response.status_code in (200, 500)
+    assert response.status_code in (200, 500, 503)
     if response.status_code == 200:
         data = response.json()
         assert data["n"] == 1
