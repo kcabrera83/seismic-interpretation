@@ -92,7 +92,7 @@ def test_classify_bad_input():
     assert r.status_code == 422
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     pass
 
     test("GET  /api/health", test_health)
