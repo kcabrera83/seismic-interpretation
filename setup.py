@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="seismic-interpretation",
-    version="1.0.0",
+    version="0.1",
     author="Ing. Kelvin Cabrera",
     description="ML-based seismic attribute interpretation: horizon tracking and facies classification",
     packages=find_packages(),

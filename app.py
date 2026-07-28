@@ -1,5 +1,3 @@
-"""FastAPI for seismic interpretation models."""
-
 import os
 import json
 import pickle
@@ -17,7 +15,7 @@ from seismic_interpretation.models.facies_classifier import FaciesClassifier
 app = FastAPI(
     title="Seismic Interpretation",
     description="Seismic horizon tracking and facies classification",
-    version="2.0.0",
+    version="0.1",
 )
 
 app.add_middleware(

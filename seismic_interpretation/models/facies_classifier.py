@@ -1,5 +1,3 @@
-"""Facies classifier using GradientBoosting for lithology classification."""
-
 import numpy as np
 import os
 import joblib
@@ -14,7 +12,7 @@ class FaciesClassifier:
             n_estimators=min(epochs, 300),
             learning_rate=lr,
             max_depth=4,
-            random_state=42,
+            random_state=2024,
         )
 
     def train(self, X_train, y_train):

@@ -1,5 +1,3 @@
-"""Train both models and save artifacts using sklearn GradientBoosting."""
-
 import os
 import json
 import pickle
@@ -14,17 +12,15 @@ OUTPUT_DIR = os.path.join("outputs", "models")
 
 
 def main():
-    print("=" * 60)
-    print("  Seismic Interpretation - Model Training (sklearn GradientBoosting)")
-    print("=" * 60)
+    pass
 
     print("\n[1/5] Generating synthetic seismic data...")
-    df = generate_synthetic_data(n_samples=2000, random_state=42)
+    df = generate_synthetic_data(n_samples=2000, random_state=2024)
     print(f"  Generated {len(df)} samples")
     print(f"  Features: {list(df.columns)}")
 
     print("\n[2/5] Preprocessing data...")
-    data = prepare_data(df, test_size=0.2, random_state=42)
+    data = prepare_data(df, test_size=0.2, random_state=2024)
     print(f"  Train: {len(data['X_train'])} | Test: {len(data['X_test'])}")
 
     print("\n[3/5] Training HorizonTracker (GradientBoosting)...")
@@ -62,8 +58,7 @@ def main():
         json.dump(metadata, f, indent=2)
 
     print("\n" + "=" * 60)
-    print("  Training Complete!")
-    print("=" * 60)
+    pass
     print(f"\n  Models saved to: {OUTPUT_DIR}/")
     print(f"  - horizon_tracker.joblib")
     print(f"  - facies_classifier.joblib")

@@ -1,5 +1,3 @@
-"""API integration tests for Seismic Interpretation FastAPI app."""
-
 import sys
 from fastapi.testclient import TestClient
 
@@ -95,9 +93,7 @@ def test_classify_bad_input():
 
 
 if __name__ == "__main__":
-    print("=" * 50)
-    print("  API Tests")
-    print("=" * 50)
+    pass
 
     test("GET  /api/health", test_health)
     test("GET  /api/models", test_models)

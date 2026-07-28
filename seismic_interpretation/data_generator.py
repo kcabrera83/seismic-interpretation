@@ -1,10 +1,8 @@
-"""Synthetic seismic attribute data generator."""
-
 import numpy as np
 import pandas as pd
 
 
-def generate_synthetic_data(n_samples=1000, random_state=42):
+def generate_synthetic_data(n_samples=1000, random_state=2024):
     rng = np.random.RandomState(random_state)
 
     amplitude = rng.uniform(-1.0, 1.0, n_samples)

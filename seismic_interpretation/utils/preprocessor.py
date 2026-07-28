@@ -1,5 +1,3 @@
-"""Data preprocessor for seismic attributes."""
-
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -15,7 +13,7 @@ TARGET_REG = "porosity_prediction"
 TARGET_CLF = "lithology_prediction"
 
 
-def prepare_data(df, test_size=0.2, random_state=42):
+def prepare_data(df, test_size=0.2, random_state=2024):
     X = df[FEATURE_COLS].values
     y_reg = df[TARGET_REG].values
     y_clf = df[TARGET_CLF].values
