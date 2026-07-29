@@ -1,54 +1,35 @@
 import streamlit as st
-import joblib
-import numpy as np
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 st.set_page_config(page_title="Seismic Interpretation", layout="wide")
 st.title("Seismic Interpretation")
-st.markdown("Interpret seismic data for horizon tracking and facies classification.")
+st.markdown("Interpret seismic data for facies classification.")
 
-@st.cache_resource
-def load_models():
-    d = Path(__file__).parent / "outputs" / "models"
-    return {k: joblib.load(d / v) for k, v in [("porosity", "porosity_predictor.pkl"), ("facies", "facies_classifier.pkl")]}
-
-models = load_models()
+import joblib, numpy as np
+d = Path(__file__).parent / 'outputs' / 'models'
+models = {'porosity': joblib.load(d / 'porosity_predictor.pkl'), 'facies': joblib.load(d / 'facies_classifier.pkl')}
 
 st.sidebar.header("Input Parameters")
-amplitude = st.sidebar.slider("Amplitude", -100, 100, 0)
-frequency_hz = st.sidebar.slider("Frequency Hz", 5, 100, 52)
-phase_deg = st.sidebar.slider("Phase Deg", 0, 360, 180)
-acoustic_impedance = st.sidebar.slider("Acoustic Impedance", 2000, 10000, 6000)
-velocity_ms = st.sidebar.slider("Velocity Ms", 1500, 5000, 3250)
-density_g_cc = st.sidebar.slider("Density G Cc", 1, 3, 2)
+amplitude = st.sidebar.slider('Amplitude', -100, 100, 0)
+frequency = st.sidebar.slider('Frequency', 5, 100, 52)
+phase = st.sidebar.slider('Phase', 0, 360, 180)
+impedance = st.sidebar.slider('Impedance', 2000, 10000, 6000)
+velocity = st.sidebar.slider('Velocity', 1500, 5000, 3250)
+density = st.sidebar.slider('Density', 1, 3, 2)
 
-if st.sidebar.button("Run Prediction"):
+if st.sidebar.button("Run"):
     try:
-        features = np.array([[amplitude, frequency_hz, phase_deg, acoustic_impedance, velocity_ms, density_g_cc]])
-        m = models["porosity"]
-        if isinstance(m, dict):
-            X = m.get("scaler").transform(features) if m.get("scaler") else features
-            pred = m["model"].predict(X)
-            if "label_encoder" in m:
-                result = m["label_encoder"].inverse_transform(pred)[0]
+        x = np.array([[amplitude, frequency, phase, impedance, velocity, density]])
+        cols = st.columns(2)
+        for i, (k, m) in enumerate(models.items()):
+            X = m['scaler'].transform(x)
+            p = m['model'].predict(X)
+            if 'label_encoder' in m:
+                val = m['label_encoder'].inverse_transform(p)[0]
             else:
-                result = pred[0]
-        else:
-            result = m.predict(features)[0]
-        st.metric("Porosity", result if isinstance(result, str) else f"{result:.4f}")
-        m = models["facies"]
-        if isinstance(m, dict):
-            X = m.get("scaler").transform(features) if m.get("scaler") else features
-            pred = m["model"].predict(X)
-            if "label_encoder" in m:
-                result = m["label_encoder"].inverse_transform(pred)[0]
-            else:
-                result = pred[0]
-        else:
-            result = m.predict(features)[0]
-        st.metric("Facies", result if isinstance(result, str) else f"{result:.4f}")
+                val = f'{p[0]:.2f}'
+            cols[i].metric(k.title(), val)
     except Exception as e:
-        st.error(f"Error: {e}")
-
+        st.error(str(e))
