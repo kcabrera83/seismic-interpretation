@@ -1,5 +1,6 @@
 import streamlit as st
 import pickle
+import joblib
 import numpy as np
 import sys
 from pathlib import Path
@@ -12,7 +13,7 @@ st.markdown("Interpret seismic data for horizon tracking and facies classificati
 @st.cache_resource
 def load_models():
     d = Path(__file__).parent / "outputs" / "models"
-    return {k: pickle.load(open(d / v, "rb")) for k, v in [("porosity", "porosity_predictor.pkl"), ("facies", "facies_classifier.pkl")]}
+    return {k: joblib.load(d / v) for k, v in [("porosity", "porosity_predictor.pkl"), ("facies", "facies_classifier.pkl")]}
 
 models = load_models()
 
