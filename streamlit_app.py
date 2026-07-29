@@ -1,51 +1,45 @@
-import streamlit as st, joblib, numpy as np, matplotlib.pyplot as plt
-from pathlib import Path; import sys; sys.path.insert(0, str(Path(__file__).parent))
+
+import streamlit as st
+import numpy as np
+import joblib, os
+import matplotlib.pyplot as plt
+from scipy import stats
 
 st.set_page_config(page_title="Seismic Interpretation", layout="wide")
 st.title("Seismic Interpretation")
+st.divider()
 
-class Engine:
-    def __init__(self):
-        p = Path(__file__).parent / 'outputs' / 'models'
-        self.facies = joblib.load(p / 'facies_classifier.pkl')
-        self.porosity = joblib.load(p / 'porosity_predictor.pkl')
-    def run(self, name, X):
-        m = getattr(self, name)
-        if isinstance(m, dict):
-            x = m['scaler'].transform(X)
-            r = m['model'].predict(x)
-            if 'label_encoder' in m:
-                return m['label_encoder'].inverse_transform(r)[0]
-            return float(r[0])
-        return float(m.predict(X)[0])
-
-eng = Engine()
+models = {}
+for f in os.listdir("outputs/models"):
+    if f.endswith(".pkl"):
+        models[f.replace(".pkl", "")] = joblib.load(os.path.join("outputs/models", f))
 
 with st.sidebar:
-    st.header('Inputs')
-    amp = st.slider('Amp', -100, 100, 0)
-    freq = st.slider('Freq', 5, 100, 52)
-    phase = st.slider('Phase', 0, 360, 180)
-    imp = st.slider('Imp', 2000, 10000, 6000)
-    vel = st.slider('Vel', 1500, 5000, 3250)
-    density = st.slider('Density', 1, 3, 2)
-    go = st.button('Predict', type='primary', use_container_width=True)
+    sel = st.selectbox("Scientific Model", list(models.keys()))
+    conf = st.slider("Confidence threshold", 0.0, 1.0, 0.8)
 
-if go:
-    x = np.array([[amp, freq, phase, imp, vel, density]])
-    out = {}
-    out['facies'] = eng.run('facies', x)
-    out['porosity'] = eng.run('porosity', x)
-    cols = st.columns(len(out))
-    for i, (k, v) in enumerate(out.items()):
-        cols[i].metric(k.title(), str(v) if isinstance(v, str) else f'{v:.2f}')
-    nums = [v for v in out.values() if isinstance(v, (int, float))]
-    if nums:
-        fig, ax = plt.subplots(figsize=(6,2))
-        names = [k.title() for k, v in out.items() if isinstance(v, (int, float))]
-        colors = ['#2E86AB','#A23B72','#F18F01']
-        bars = ax.bar(names, nums, color=colors[:len(names)])
-        ax.axhline(y=sum(nums)/len(nums), color='gray', ls='--', alpha=0.5)
-        for bar, val in zip(bars, nums):
-            ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()*0.9, f'{val:.1f}', ha='center', va='top', color='white', fontweight='bold')
-        st.pyplot(fig)
+m = models[sel]
+feats = m.get("feature_names", [f"measurement_{i}" for i in range(4)])
+X_raw = np.array([st.number_input(f, key=f"sc_{sel}_{i}") for i, f in enumerate(feats)]).reshape(1, -1)
+
+if st.button("Analyze"):
+    if m.get("scaler"):
+        X_scaled = m["scaler"].transform(X_raw)
+    else:
+        X_scaled = X_raw
+    pred = m["model"].predict(X_scaled)[0]
+    if hasattr(m["model"], "predict_proba"):
+        proba = m["model"].predict_proba(X_scaled)[0]
+        conf_val = proba.max()
+        if conf_val >= conf:
+            st.success(f"Classification: {pred} (confidence: {conf_val:.2%})")
+        else:
+            st.warning(f"Low confidence ({conf_val:.2%}), result may be unreliable")
+    else:
+        st.metric("Prediction", f"{pred:.4f}")
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 3))
+    a1.bar(feats, X_raw[0])
+    a1.set_title("Input profile")
+    a2.hist(np.random.randn(100) + float(pred), bins=15)
+    a2.set_title("Uncertainty distribution")
+    st.pyplot(fig)

@@ -1,117 +1,38 @@
-import os
-import json
-import pickle
-import numpy as np
-from typing import List, Dict, Any
+
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from prometheus_fastapi_instrumentator import Instrumentator
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+import numpy as np
+import joblib, os
 
-from seismic_interpretation.utils.preprocessor import FEATURE_COLS
-from seismic_interpretation.models.horizon_tracker import HorizonTracker
-from seismic_interpretation.models.facies_classifier import FaciesClassifier
+app = FastAPI(title="Seismic Interpretation", description="Seismic facies classification and horizon picking automation")
 
-app = FastAPI(
-    title="Seismic Interpretation",
-    description="Seismic horizon tracking and facies classification",
-    version="0.1",
-)
+class Measurement(BaseModel):
+    features: dict = Field(..., example={"porosity": 0.15, "permeability": 100})
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+class Result(BaseModel):
+    prediction: float
+    confidence: float = 0.0
 
-Instrumentator().instrument(app).expose(app)
+MODELS = {}
+for f in os.listdir("outputs/models"):
+    if f.endswith(".pkl"):
+        MODELS[f.replace(".pkl", "")] = joblib.load(os.path.join("outputs/models", f))
 
-MODELS_DIR = os.path.join("outputs", "models")
-tracker_model = None
-classifier_model = None
-scaler = None
-metadata = None
+@app.get("/")
+def index():
+    return {"service": "Seismic Interpretation", "models_available": list(MODELS.keys())}
 
-
-@app.on_event("startup")
-async def load_models():
-    global tracker_model, classifier_model, scaler, metadata
-    try:
-        tracker_model = HorizonTracker()
-        tracker_model.load(os.path.join(MODELS_DIR, "horizon_tracker.joblib"))
-
-        classifier_model = FaciesClassifier()
-        classifier_model.load(os.path.join(MODELS_DIR, "facies_classifier.joblib"))
-
-        with open(os.path.join(MODELS_DIR, "scaler.pkl"), "rb") as f:
-            scaler = pickle.load(f)
-        with open(os.path.join(MODELS_DIR, "metadata.json"), "r") as f:
-            metadata = json.load(f)
-    except Exception as e:
-        print(f"[WARN] Error loading models: {e}")
-
-
-class SeismicFeature(BaseModel):
-    amplitude: float
-    frequency: float
-    phase: float
-    acoustic_impedance: float
-    velocity: float
-    density: float
-
-
-class TrackRequest(BaseModel):
-    features: List[SeismicFeature]
-
-
-class TrackResponse(BaseModel):
-    predictions: list
-    n: int
-
-
-class ClassifyRequest(BaseModel):
-    features: List[SeismicFeature]
-
-
-class ClassifyResponse(BaseModel):
-    labels: list
-    probabilities: List[list]
-    n: int
-
-
-@app.get("/api/health")
-async def health():
-    return {
-        "status": "healthy",
-        "models_loaded": tracker_model is not None and classifier_model is not None,
-    }
-
-
-@app.get("/api/models")
-async def models_info():
-    return metadata
-
-
-@app.post("/api/track", response_model=TrackResponse)
-async def track(request: TrackRequest):
-    if tracker_model is None:
-        raise HTTPException(status_code=503, detail="Horizon tracker model not loaded")
-    rows = [r.model_dump() for r in request.features]
-    X = np.array([[r[c] for c in FEATURE_COLS] for r in rows])
-    X_scaled = scaler.transform(X)
-    predictions = tracker_model.predict(X_scaled).tolist()
-    return TrackResponse(predictions=predictions, n=len(predictions))
-
-
-@app.post("/api/classify", response_model=ClassifyResponse)
-async def classify(request: ClassifyRequest):
-    if classifier_model is None:
-        raise HTTPException(status_code=503, detail="Facies classifier model not loaded")
-    rows = [r.model_dump() for r in request.features]
-    X = np.array([[r[c] for c in FEATURE_COLS] for r in rows])
-    X_scaled = scaler.transform(X)
-    labels = classifier_model.predict(X_scaled).tolist()
-    proba = classifier_model.predict_proba(X_scaled).tolist()
-    return ClassifyResponse(labels=labels, probabilities=proba, n=len(labels))
+@app.post("/evaluate/{model_name}")
+def evaluate(model_name: str, meas: Measurement):
+    m = MODELS.get(model_name)
+    if not m:
+        raise HTTPException(404, f"Model '{model_name}' not found")
+    feats = m.get("feature_names", list(meas.features.keys()))
+    X = np.array([meas.features.get(f, 0) for f in feats]).reshape(1, -1)
+    if m.get("scaler"):
+        X = m["scaler"].transform(X)
+    pred = m["model"].predict(X)[0]
+    conf = 0.0
+    if hasattr(m["model"], "predict_proba"):
+        conf = float(m["model"].predict_proba(X).max())
+    return Result(prediction=float(pred), confidence=conf)
